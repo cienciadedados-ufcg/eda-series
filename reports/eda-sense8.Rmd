@@ -1,0 +1,170 @@
+---
+title: "EDA Sense8"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+theme_set(theme_bw())
+```
+
+Analisaremos os episódios da falecida série Sense8. 
+
+Houve duas temporadas: quais foram os melhores episódios? A melhor temporada?
+
+```{r}
+episodes = read_csv(here("data/series_from_imdb.csv"), 
+                    progress = FALSE,
+                    col_types = cols(.default = col_double(), 
+                                     series_name = col_character(), 
+                                     episode = col_character(), 
+                                     url = col_character(),
+                                     season = col_character())) %>% 
+    filter(series_name == "Sense8") 
+```
+
+## Quantas avaliações temos por episódio? 
+
+Cada episódio foi avaliado por um número diferente de usuários do IMDB. Vejamos como é essa distribuição. 
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = season, y = user_votes)) +
+    geom_violin() + 
+    geom_jitter(width = .07) 
+```
+
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = season_ep, y = user_votes))  + 
+    geom_line() + 
+    facet_wrap(~ season)
+               
+```
+
+A quantidade de avaliações varia bastante. Exceto pelo primeiro episódio, os episódios da segunda temporada tem muito menos avaliações. Talvez porque os dados foram coletados logo depois que a segunda temporada foi lançada. 
+
+## Qual a distribuição da avaliação dos episódios?
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = "Sense8", y = user_rating)) + 
+    geom_jitter(width = .05) +
+    ylim(5, 10) + 
+    labs(x = "Episódios", y = "Avaliação no IMDB")
+```
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = user_rating)) + 
+    geom_histogram(binwidth = .5, fill = "pink", color = "black") + 
+    geom_rug(alpha = .5, size = 1.2)
+
+```
+
+```{r}
+sumarios = episodes %>% 
+    summarise(mediana = median(user_rating), 
+              media = mean(user_rating))
+
+episodes %>% 
+    ggplot(aes(x = user_rating)) + 
+    geom_histogram(binwidth = .5, fill = "white", color = "black") + 
+    geom_vline(xintercept = sumarios$media, color = "darkorange") + 
+    geom_vline(xintercept = sumarios$mediana, color = "brown") 
+```
+
+### Qual é esse episódio pior avaliado? 
+
+```{r}
+episodes %>% 
+    filter(user_rating == min(user_rating))
+```
+
+
+## Qual a pior/melhor temporada segundo o IMDB?
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = season, y = user_rating)) + 
+    geom_boxplot(width = .5, outlier.color = NA) +   
+    geom_jitter(width = .1, size = 2, alpha = .5, color = "red")
+```
+
+
+### Há padrões na avaliação ao longo do tempo?
+
+```{r}
+episodes %>% 
+  ggplot(aes(x = season_ep, y = user_rating, color = season)) + 
+  geom_line() + 
+  geom_point() 
+```
+
+Correlações
+
+```{r}
+episodes %>% 
+    group_by(season) %>% 
+    summarise(correlacao_linear = cor(season_ep, user_rating, 
+                                      method = "pearson"), 
+              correlacao_kendall = cor(season_ep, user_rating, 
+                                       method = "kendall"))
+
+```
+
+## Qual o episódio mais detestado? 
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = season_ep, y = r1, color = season)) + 
+    geom_line() + 
+    scale_x_continuous(breaks = 1:12)
+```
+
+### E amado? 
+
+```{r}
+episodes %>%
+    ggplot(aes(x = season_ep, y = r10, color = season)) +
+    geom_line() +
+    scale_x_continuous(breaks = 1:12)
+```
+
+### Amor e ódio andam juntos?
+
+Quais são episódios que estão entre os mais amados e mais odiados? 
+
+```{r}
+episodes =  episodes %>%
+    mutate(
+        rank_odiados = row_number(r1), # maior = mais odiado
+        rank_amados = row_number(r10), # maior = mais amado
+        amado_odiado = rank_amados * rank_odiados) # maior = mais amado E odiado
+    
+episodes %>%
+    ggplot(aes(
+        x = r1,
+        y = r10,
+        color = season,
+        size = amado_odiado,
+        label = season_ep
+    )) +
+    geom_point(alpha = .7) +
+    geom_text(nudge_x = .001, nudge_y = -.01) 
+```
+
+```{r}
+episodes %>% 
+    arrange(-amado_odiado)
+```
+
