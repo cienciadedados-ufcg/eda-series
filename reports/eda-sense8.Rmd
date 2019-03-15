@@ -21,13 +21,14 @@ Analisaremos os episódios da falecida série Sense8.
 Houve duas temporadas: quais foram os melhores episódios? A melhor temporada?
 
 ```{r}
-episodes = read_csv(here("data/series_from_imdb.csv"), 
-                    progress = FALSE,
+all_series = read_csv(here("data/series_from_imdb.csv"), 
                     col_types = cols(.default = col_double(), 
                                      series_name = col_character(), 
                                      episode = col_character(), 
                                      url = col_character(),
-                                     season = col_character())) %>% 
+                                     season = col_character())) 
+
+episodes = all_series %>% 
     filter(series_name == "Sense8") 
 ```
 
@@ -38,7 +39,6 @@ Cada episódio foi avaliado por um número diferente de usuários do IMDB. Vejam
 ```{r}
 episodes %>% 
     ggplot(aes(x = season, y = user_votes)) +
-    geom_violin() + 
     geom_jitter(width = .07) 
 ```
 
@@ -110,17 +110,6 @@ episodes %>%
   geom_point() 
 ```
 
-Correlações
-
-```{r}
-episodes %>% 
-    group_by(season) %>% 
-    summarise(correlacao_linear = cor(season_ep, user_rating, 
-                                      method = "pearson"), 
-              correlacao_kendall = cor(season_ep, user_rating, 
-                                       method = "kendall"))
-
-```
 
 ## Qual o episódio mais detestado? 
 
@@ -145,26 +134,14 @@ episodes %>%
 Quais são episódios que estão entre os mais amados e mais odiados? 
 
 ```{r}
-episodes =  episodes %>%
-    mutate(
-        rank_odiados = row_number(r1), # maior = mais odiado
-        rank_amados = row_number(r10), # maior = mais amado
-        amado_odiado = rank_amados * rank_odiados) # maior = mais amado E odiado
-    
 episodes %>%
     ggplot(aes(
         x = r1,
         y = r10,
         color = season,
-        size = amado_odiado,
         label = season_ep
     )) +
     geom_point(alpha = .7) +
     geom_text(nudge_x = .001, nudge_y = -.01) 
-```
-
-```{r}
-episodes %>% 
-    arrange(-amado_odiado)
 ```
 
