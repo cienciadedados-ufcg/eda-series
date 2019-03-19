@@ -1,5 +1,5 @@
 ---
-title: "EDA Sense8"
+title: "EDA Stranger Things"
 output:
   html_notebook:
     toc: yes
@@ -16,132 +16,89 @@ library(here)
 theme_set(theme_bw())
 ```
 
-Analisaremos os episódios da falecida série Sense8. 
+## Objetivo
 
-Houve duas temporadas: quais foram os melhores episódios? A melhor temporada?
+Explorar as avaliações dos episódios da série Stranger Things. Houve duas temporadas: quais foram os melhores episódios? A melhor temporada?
+
+Ler os dados:
 
 ```{r}
-all_series = read_csv(here("data/series_from_imdb.csv"), 
-                    col_types = cols(.default = col_double(), 
-                                     series_name = col_character(), 
-                                     episode = col_character(), 
-                                     url = col_character(),
-                                     season = col_character())) 
+all_series = read_csv(here("data/series_from_imdb.csv.zip"), 
+                      col_types = "ccdcdcdddddddddddd") 
+
+glimpse(all_series)
 
 episodes = all_series %>% 
-    filter(series_name == "Sense8") 
+    filter(series_name == "Stranger Things") 
+
+glimpse(episodes)
 ```
 
-## Quantas avaliações temos por episódio? 
+Estamos interessados nas variáveis `UserRating` e `UserVotes`, principalmente.
 
-Cada episódio foi avaliado por um número diferente de usuários do IMDB. Vejamos como é essa distribuição. 
+## Quais os valores que existem de notas? 
 
 ```{r}
 episodes %>% 
-    ggplot(aes(x = season, y = user_votes)) +
-    geom_jitter(width = .07) 
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = season, y = UserRating)) + 
+  geom_point()
+  
 ```
 
+E por faixas de valor?
 
 ```{r}
 episodes %>% 
-    ggplot(aes(x = season_ep, y = user_votes))  + 
-    geom_line() + 
-    facet_wrap(~ season)
-               
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = UserRating)) + 
+  geom_histogram(binwidth = 0.5, 
+                 boundary = 6,
+                 color = "black", 
+                 fill = "salmon") + 
+  geom_rug()
+
 ```
 
-A quantidade de avaliações varia bastante. Exceto pelo primeiro episódio, os episódios da segunda temporada tem muito menos avaliações. Talvez porque os dados foram coletados logo depois que a segunda temporada foi lançada. 
-
-## Qual a distribuição da avaliação dos episódios?
+## Quais valores existem para número de votos?
 
 ```{r}
 episodes %>% 
-    ggplot(aes(x = "Sense8", y = user_rating)) + 
-    geom_jitter(width = .05) +
-    ylim(5, 10) + 
-    labs(x = "Episódios", y = "Avaliação no IMDB")
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = season, y = UserVotes)) + 
+  geom_point()
 ```
 
 ```{r}
 episodes %>% 
-    ggplot(aes(x = user_rating)) + 
-    geom_histogram(binwidth = .5, fill = "pink", color = "black") + 
-    geom_rug(alpha = .5, size = 1.2)
-
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = UserVotes)) + 
+  geom_histogram(binwidth = 1000, 
+                 boundary = 10000,
+                 color = "black", 
+                 fill = "darkorange") + 
+  geom_rug()
 ```
 
-```{r}
-sumarios = episodes %>% 
-    summarise(mediana = median(user_rating), 
-              media = mean(user_rating))
+Temos um episódio bem mais avaliado que os demais.
 
-episodes %>% 
-    ggplot(aes(x = user_rating)) + 
-    geom_histogram(binwidth = .5, fill = "white", color = "black") + 
-    geom_vline(xintercept = sumarios$media, color = "darkorange") + 
-    geom_vline(xintercept = sumarios$mediana, color = "brown") 
-```
 
-### Qual é esse episódio pior avaliado? 
+## Qual é esse episódio tão mal avaliado?
 
 ```{r}
 episodes %>% 
-    filter(user_rating == min(user_rating))
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = series_ep, y = UserRating, color = season)) + 
+  geom_line()
 ```
 
-
-## Qual a pior/melhor temporada segundo o IMDB?
+E qual aquele com mais avaliações?
 
 ```{r}
 episodes %>% 
-    ggplot(aes(x = season, y = user_rating)) + 
-    geom_boxplot(width = .5, outlier.color = NA) +   
-    geom_jitter(width = .1, size = 2, alpha = .5, color = "red")
+  mutate(season = as.character(season)) %>% 
+  ggplot(mapping = aes(x = series_ep, y = UserVotes, color = season)) + 
+  geom_line()
 ```
 
-
-### Há padrões na avaliação ao longo do tempo?
-
-```{r}
-episodes %>% 
-  ggplot(aes(x = season_ep, y = user_rating, color = season)) + 
-  geom_line() + 
-  geom_point() 
-```
-
-
-## Qual o episódio mais detestado? 
-
-```{r}
-episodes %>% 
-    ggplot(aes(x = season_ep, y = r1, color = season)) + 
-    geom_line() + 
-    scale_x_continuous(breaks = 1:12)
-```
-
-### E amado? 
-
-```{r}
-episodes %>%
-    ggplot(aes(x = season_ep, y = r10, color = season)) +
-    geom_line() +
-    scale_x_continuous(breaks = 1:12)
-```
-
-### Amor e ódio andam juntos?
-
-Quais são episódios que estão entre os mais amados e mais odiados? 
-
-```{r}
-episodes %>%
-    ggplot(aes(
-        x = r1,
-        y = r10,
-        color = season,
-        label = season_ep
-    )) +
-    geom_point(alpha = .7) +
-    geom_text(nudge_x = .001, nudge_y = -.01) 
-```
-
+Alguma coisa aconteceu no episódio 15...
